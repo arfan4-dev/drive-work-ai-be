@@ -1,0 +1,23 @@
+{
+  "name": "drivework-ai-spike-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DriveWork AI feasibility spike - Express backend (uploads, prompt builder, AI provider abstraction).",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch-path=./src --watch-path=./.env src/server.js",
+    "start": "node src/server.js",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@google/genai": "^2.27.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "multer": "^2.4.0"
+  }
+}
