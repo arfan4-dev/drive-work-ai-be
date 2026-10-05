@@ -28,6 +28,10 @@ export const config = {
   defaultProvider: (process.env.AI_PROVIDER || "mock").trim().toLowerCase(),
   uploadsDir: path.join(dataRoot, "uploads"),
   outputsDir: path.join(dataRoot, "outputs"),
+  // "url": results are files served from /outputs (local). "inline": results are returned as base64
+  // inside the run response and temp files are deleted - needed on Vercel, where /tmp is per-instance
+  // and a later image request may hit an instance that does not have the file.
+  resultDelivery: (process.env.RESULT_DELIVERY || (isVercel ? "inline" : "url")).trim().toLowerCase(),
   mock: {
     delayMs: Number(process.env.MOCK_DELAY_MS ?? 400) || 0,
     failViews: parseList(process.env.MOCK_FAIL_VIEWS)

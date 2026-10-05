@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { config } from "../config.js";
 import { BaseImageProvider } from "./BaseImageProvider.js";
 
 /**
@@ -116,8 +117,16 @@ export class GeminiProvider extends BaseImageProvider {
       // Each view is an independent, stateless edit - don't keep the car photos server-side.
       store: false
     };
+    const responseFormat = { type: "image" };
     if (process.env.GEMINI_IMAGE_SIZE) {
-      request.response_format = { type: "image", image_size: process.env.GEMINI_IMAGE_SIZE };
+      responseFormat.image_size = process.env.GEMINI_IMAGE_SIZE;
+    }
+    if (config.resultDelivery === "inline") {
+      // Results travel inside the JSON response (4.5 MB limit on Vercel) - JPEG keeps them small.
+      responseFormat.mime_type = "image/jpeg";
+    }
+    if (Object.keys(responseFormat).length > 1) {
+      request.response_format = responseFormat;
     }
 
     let interaction;

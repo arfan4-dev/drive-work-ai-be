@@ -4,7 +4,19 @@ import { performance } from "node:perf_hooks";
 import { config } from "../config.js";
 import { MODIFICATION_TYPES, VIEWS } from "../constants.js";
 import { buildPrompt } from "../prompts/promptBuilder.js";
-import { outputUrl, uploadUrl } from "../utils/upload.js";
+import { outputUrl, removeRunUploads, uploadUrl } from "../utils/upload.js";
+
+const MIME_TYPE_BY_EXTENSION = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp"
+};
+
+async function toDataUrl(filePath) {
+  const mimeType = MIME_TYPE_BY_EXTENSION[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+  return `data:${mimeType};base64,${await fs.readFile(filePath, { encoding: "base64" })}`;
+}
 
 function sumCosts(views) {
   // Only report a total when every view reported a genuine cost - never fill gaps with guesses.
@@ -59,12 +71,15 @@ export async function runSpikeJob({ runId, provider, modificationType, settings,
       outputName: view.key
     });
 
+    const inline = config.resultDelivery === "inline";
     views.push({
       view: view.key,
       label: view.label,
       success: result.success,
-      originalUrl: uploadUrl(runId, imagePath),
-      resultUrl: result.success ? outputUrl(runId, result.outputPath) : null,
+      // Inline mode: the frontend shows the original from its own uploaded file.
+      originalUrl: inline ? null : uploadUrl(runId, imagePath),
+      resultUrl: result.success && !inline ? outputUrl(runId, result.outputPath) : null,
+      resultDataUrl: result.success && inline ? await toDataUrl(result.outputPath) : null,
       processingTimeMs: result.processingTimeMs,
       estimatedCost: result.estimatedCost,
       model: result.model,
@@ -89,9 +104,11 @@ export async function runSpikeJob({ runId, provider, modificationType, settings,
     model: provider.model,
     modificationType,
     modificationLabel: MODIFICATION_TYPES[modificationType].label,
+    resultDelivery: config.resultDelivery,
     settings: {
       ...settings,
-      partReferenceUrl: referenceImagePath ? uploadUrl(runId, referenceImagePath) : null
+      hasPartReference: Boolean(referenceImagePath),
+      partReferenceUrl: referenceImagePath && config.resultDelivery !== "inline" ? uploadUrl(runId, referenceImagePath) : null
     },
     totalProcessingTimeMs: Math.round(performance.now() - startedAtMs),
     estimatedCost: sumCosts(views),
@@ -100,6 +117,13 @@ export async function runSpikeJob({ runId, provider, modificationType, settings,
     views
   };
 
-  await fs.writeFile(path.join(outputDir, "run.json"), JSON.stringify(run, null, 2));
+  if (config.resultDelivery === "inline") {
+    // Everything the frontend needs is in the response; don't let /tmp fill up across runs.
+    await Promise.all([removeRunUploads(runId), fs.rm(outputDir, { recursive: true, force: true })]);
+    const payloadMb = Buffer.byteLength(JSON.stringify(run)) / (1024 * 1024);
+    console.log(`[run ${runId}] inline response ${payloadMb.toFixed(2)} MB (Vercel response limit 4.5 MB)`);
+  } else {
+    await fs.writeFile(path.join(outputDir, "run.json"), JSON.stringify(run, null, 2));
+  }
   return run;
 }

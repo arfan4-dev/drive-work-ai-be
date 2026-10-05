@@ -26,6 +26,7 @@ Requires Node.js 20.12+. With the backend running, `npm run smoke` exercises eve
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed frontend origin(s), comma-separated |
 | `MAX_UPLOAD_MB` | `20` | Per-file upload limit |
 | `AI_PROVIDER` | `mock` | Provider used when the request does not specify one |
+| `RESULT_DELIVERY` | `url` locally, `inline` on Vercel | How result images are returned (see Deploying to Vercel) |
 | `MOCK_DELAY_MS` | `400` | Artificial per-view latency for the mock |
 | `MOCK_FAIL_VIEWS` | _(empty)_ | e.g. `rear,frontLeft` — mock fails those views (tests error display) |
 | `GEMINI_API_KEY` | _(empty)_ | Google AI Studio key. Image output requires a **paid tier** key |
@@ -63,9 +64,17 @@ Set these in **Vercel → Project Settings → Environment Variables**:
 
 Health check: `https://<your-backend-project>.vercel.app/api/health`
 
+### How results reach the frontend on Vercel (`RESULT_DELIVERY`)
+On Vercel, `/tmp` is per-instance and temporary, so a later `GET /outputs/...` can land on an instance that doesn't have the file. Vercel therefore defaults to `RESULT_DELIVERY=inline`:
+- Each view's result comes back as `resultDataUrl` (base64) inside the `POST /api/spike/run` response.
+- `originalUrl`, `resultUrl` and `partReferenceUrl` are `null`. The frontend shows originals from the files it uploaded.
+- The run's temp files are deleted right after the response is built.
+- Gemini is asked for JPEG output so the response stays under Vercel's 4.5 MB limit. The response size is logged for each run.
+
+Locally the default is `RESULT_DELIVERY=url`, with files served from `/uploads` and `/outputs` as before.
+
 ### Vercel limitations for this spike
-- **4.5 MB request body limit.** Four full-size car photos plus a reference will usually exceed it, and Vercel returns `413 FUNCTION_PAYLOAD_TOO_LARGE`. Images must be downscaled or compressed before upload.
-- **`/tmp` is per-instance and temporary.** A later request for `/outputs/...` can land on a different instance and get a 404. Durable result URLs would need object storage such as Vercel Blob.
+- **4.5 MB limit on both the request and the response.** The frontend downscales uploads to 1600 px JPEG, which comes to about 2.5 MB for 5 images in testing. Inline results also have to fit in 4.5 MB.
 - **Function duration.** One run makes four sequential provider calls. If runs time out, raise `maxDuration` for the function.
 
 ## API
