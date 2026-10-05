@@ -1,11 +1,7 @@
-import fs from "node:fs";
+// Local development entrypoint only. On Vercel, src/app.js (default export) is used instead
+// and Vercel provides the HTTP server, so app.listen() is never called there.
+import app from "./app.js";
 import { config } from "./config.js";
-import { createApp } from "./app.js";
-
-fs.mkdirSync(config.uploadsDir, { recursive: true });
-fs.mkdirSync(config.outputsDir, { recursive: true });
-
-const app = createApp();
 
 app.listen(config.port, (error) => {
   if (error) {

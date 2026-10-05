@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { GoogleGenAI } from "@google/genai";
 import { BaseImageProvider } from "./BaseImageProvider.js";
 
 /**
@@ -95,8 +94,12 @@ export class GeminiProvider extends BaseImageProvider {
     return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_MODEL);
   }
 
-  getClient() {
-    this.client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // The SDK is loaded and the client created only when a Gemini run actually happens.
+  async getClient() {
+    if (!this.client) {
+      const { GoogleGenAI } = await import("@google/genai");
+      this.client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    }
     return this.client;
   }
 
@@ -121,7 +124,8 @@ export class GeminiProvider extends BaseImageProvider {
     try {
       // SDK retries honor the server's Retry-After (~60 s on 429), so retries are off by default:
       // a failed view should show up immediately in the benchmark rather than stall the run.
-      interaction = await this.getClient().interactions.create(request, {
+      const client = await this.getClient();
+      interaction = await client.interactions.create(request, {
         maxRetries: Number(process.env.GEMINI_MAX_RETRIES ?? 0)
       });
     } catch (error) {

@@ -75,6 +75,7 @@ export class BaseImageProvider {
         error: null
       };
     } catch (error) {
+      console.error(`[provider:${this.id}] view "${params.view}" failed:`, error);
       return {
         success: false,
         outputPath: null,

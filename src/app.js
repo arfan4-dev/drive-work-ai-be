@@ -9,13 +9,17 @@ import { removeRunUploads } from "./utils/upload.js";
 
 export function createApp() {
   const app = express();
-   
+
   app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json());
 
   // Inputs and generated results are served so the frontend can render Before/After.
   app.use("/uploads", express.static(config.uploadsDir));
   app.use("/outputs", express.static(config.outputsDir));
+
+  app.get("/", (req, res) => {
+    res.json({ service: "drivework-ai-spike-backend", health: "/api/health" });
+  });
 
   app.use("/api", healthRoutes);
   app.use("/api", spikeRoutes);
@@ -47,9 +51,16 @@ export function createApp() {
       return;
     }
 
-    console.error(error);
+    // Full stack + request context so Vercel Runtime Logs show the real exception.
+    console.error(`[500] ${req.method} ${req.originalUrl}${req.runId ? ` (run ${req.runId})` : ""}`, error);
     res.status(500).json({ error: "Internal server error.", details: error?.message });
   });
 
   return app;
 }
+
+// Vercel's Express integration uses this file as the entrypoint (first match of src/app.js) and
+// requires the app instance as the default export. Local development uses src/server.js.
+const app = createApp();
+
+export default app;

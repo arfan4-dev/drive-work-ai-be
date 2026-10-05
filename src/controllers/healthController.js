@@ -5,6 +5,7 @@ export function getHealth(req, res) {
     status: "ok",
     service: "drivework-ai-spike-backend",
     defaultProvider: config.defaultProvider,
+    runtime: config.isVercel ? "vercel" : "local",
     timestamp: new Date().toISOString()
   });
 }

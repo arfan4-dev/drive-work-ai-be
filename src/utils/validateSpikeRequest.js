@@ -40,7 +40,10 @@ export function validateSpikeRequest(req) {
     throw new HttpError(501, `Provider "${providerId}" is not implemented yet. Use "mock" until the real integration is built.`);
   }
   if (!provider.isConfigured()) {
-    throw new HttpError(400, `Provider "${providerId}" is not configured. Check the backend .env.`);
+    throw new HttpError(
+      400,
+      `Provider "${providerId}" is not configured. Set its API key and model in the backend environment (.env locally, Project Settings → Environment Variables on Vercel).`
+    );
   }
 
   const modificationType = text(body.modificationType);

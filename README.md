@@ -44,6 +44,30 @@ Requires Node.js 20.12+. With the backend running, `npm run smoke` exercises eve
 
 AI API keys live **only** in this `.env`. The frontend never sees them.
 
+## Deploying to Vercel
+
+There's no `vercel.json` and no build step. Vercel's Express support detects `src/app.js`, which default-exports the app.
+
+- `src/app.js` exports the app as its default export. Vercel provides the HTTP server, so `app.listen()` is never called there.
+- `src/server.js` is the local entry point only. It calls `app.listen()`.
+- When `VERCEL` is set, uploads and outputs go to `/tmp/drivework-spike/`, because the deployment directory is read-only. Locally they go to `uploads/` and `outputs/`.
+- AI providers and the Gemini SDK load lazily on first use. `/api/health` works even with no AI keys.
+
+Set these in **Vercel → Project Settings → Environment Variables**:
+- `CORS_ORIGIN`: the deployed frontend URL. Comma-separate it with `http://localhost:5173` if you still want local dev to work.
+- `AI_PROVIDER`
+- `GEMINI_API_KEY` and `GEMINI_MODEL`
+- Optionally `MAX_UPLOAD_MB`, `GEMINI_IMAGE_SIZE` and `GEMINI_MAX_RETRIES`
+
+`PORT` isn't needed.
+
+Health check: `https://<your-backend-project>.vercel.app/api/health`
+
+### Vercel limitations for this spike
+- **4.5 MB request body limit.** Four full-size car photos plus a reference will usually exceed it, and Vercel returns `413 FUNCTION_PAYLOAD_TOO_LARGE`. Images must be downscaled or compressed before upload.
+- **`/tmp` is per-instance and temporary.** A later request for `/outputs/...` can land on a different instance and get a 404. Durable result URLs would need object storage such as Vercel Blob.
+- **Function duration.** One run makes four sequential provider calls. If runs time out, raise `maxDuration` for the function.
+
 ## API
 
 ### `GET /api/health`
